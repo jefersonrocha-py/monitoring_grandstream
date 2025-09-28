@@ -1,0 +1,70 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Antenna {
+  id               Int       @id @default(autoincrement())
+  name             String
+  description      String?
+
+  // Coordenadas usadas no Mapa (o usuário edita em Settings)
+  lat              Float     @default(0)
+  lon              Float     @default(0)
+
+  // Status lógico consumido pelo Dashboard/Donut
+  status           String    @default("DOWN") // "UP" | "DOWN"
+
+  // --- Campos de integração GDMS ---
+  gdmsApId         String?   @unique          // ID do AP no GDMS (quando houver)
+  networkId        String?                     // ID da Network no GDMS
+  networkName      String?                     // Nome da Network (para exibição/filtro)
+  lastSyncAt       DateTime?                   // última sincronização bem-sucedida
+  lastStatusChange DateTime?                   // atalho (opcional) além do histórico
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Histórico de mudanças de status
+  statusHistory    StatusHistory[]
+
+  // Índices úteis
+  @@index([status])
+  @@index([lat, lon])
+  @@index([gdmsApId])
+  @@index([networkId])
+}
+
+model StatusHistory {
+  id        Int      @id @default(autoincrement())
+  antennaId Int
+  status    String   // "UP" | "DOWN"
+  changedAt DateTime @default(now())
+
+  antenna   Antenna  @relation(fields: [antennaId], references: [id], onDelete: Cascade)
+
+  @@index([antennaId, changedAt])
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model GdmsToken {
+  id          Int      @id @default(1)  // sempre 1
+  accessToken String
+  expiresAt   DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@map("gdms_token")
+}

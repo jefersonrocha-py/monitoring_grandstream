@@ -1,0 +1,49 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: etherium-antennas:latest
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - DATABASE_URL=file:./data/app.sqlite
+      - GDMS_BASE=${GDMS_BASE:-https://www.gwn.cloud}
+      - GDMS_TOKEN=${GDMS_TOKEN}
+      - GDMS_APP_ID=${GDMS_APP_ID}
+      - GDMS_SECRET=${GDMS_SECRET}
+      - GDMS_PAGE_SIZE=${GDMS_PAGE_SIZE:-200}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  gdms-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: etherium-antennas:latest
+    command: ["node", "scripts/gdms-cron.js"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:./data/app.sqlite
+      - GDMS_BASE=${GDMS_BASE:-https://www.gwn.cloud}
+      - GDMS_TOKEN=${GDMS_TOKEN}
+      - GDMS_APP_ID=${GDMS_APP_ID}
+      - GDMS_SECRET=${GDMS_SECRET}
+      - GDMS_PAGE_SIZE=${GDMS_PAGE_SIZE:-200}
+    depends_on:
+      web:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+networks:
+  default:
+    name: etherium-antennas-net
