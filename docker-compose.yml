@@ -1,49 +1,47 @@
+version: "3.9"
+
 services:
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: etherium-antennas:latest
-    environment:
-      - NODE_ENV=production
-      - PORT=8080
-      - DATABASE_URL=file:./data/app.sqlite
-      - GDMS_BASE=${GDMS_BASE:-https://www.gwn.cloud}
-      - GDMS_TOKEN=${GDMS_TOKEN}
-      - GDMS_APP_ID=${GDMS_APP_ID}
-      - GDMS_SECRET=${GDMS_SECRET}
-      - GDMS_PAGE_SIZE=${GDMS_PAGE_SIZE:-200}
-    volumes:
-      - ./data:/app/data
+    build: .
+    image: etherium/antennas:latest
+    container_name: antennas-web
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "file:/app/prisma/data/db.sqlite" # persiste no volume
+      NODE_ENV: "production"
+      PORT: "3000"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # GDMS_BASE: "https://www.gwn.cloud"   # (opcional) sobrescreva se precisar
+    volumes:
+      - sqlite-data:/app/prisma/data
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/health"]
-      interval: 30s
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 20s
       timeout: 5s
       retries: 5
 
-  gdms-sync:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: etherium-antennas:latest
-    command: ["node", "scripts/gdms-cron.js"]
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=file:./data/app.sqlite
-      - GDMS_BASE=${GDMS_BASE:-https://www.gwn.cloud}
-      - GDMS_TOKEN=${GDMS_TOKEN}
-      - GDMS_APP_ID=${GDMS_APP_ID}
-      - GDMS_SECRET=${GDMS_SECRET}
-      - GDMS_PAGE_SIZE=${GDMS_PAGE_SIZE:-200}
+  worker:
+    image: etherium/antennas:latest
+    container_name: antennas-worker
+    restart: unless-stopped
     depends_on:
       web:
         condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      APP_BASE_URL: "http://web:3000"           # chama o endpoint do web
+      SYNC_INTERVAL_MS: "300000"                # 5 minutos
+      SYNC_PATH: "/api/integrations/gdms/sync"  # endpoint de sync
+      DATABASE_URL: "file:/app/prisma/data/db.sqlite"
+      NODE_ENV: "production"
+    command: ["node", "scripts/gdms-cron.mjs"]
     volumes:
-      - ./data:/app/data
-    restart: unless-stopped
+      - sqlite-data:/app/prisma/data
 
-networks:
-  default:
-    name: etherium-antennas-net
+volumes:
+  sqlite-data:
