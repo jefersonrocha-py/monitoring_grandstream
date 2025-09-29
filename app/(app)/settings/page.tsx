@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [q, setQ] = useState("");
+  const [net, setNet] = useState<string>(""); // filtro de rede
 
   const [draft, setDraft] = useState<Record<number, { lat?: string; lon?: string; description?: string }>>({});
 
@@ -47,14 +48,19 @@ export default function SettingsPage() {
 
   useEffect(() => { load(); }, []);
 
+  const networks = useMemo(
+    () => Array.from(new Set(list.map(a => a.networkName ?? "").filter(Boolean))).sort(),
+    [list]
+  );
+
   const filtered = useMemo(() => {
     const x = q.trim().toLowerCase();
-    if (!x) return list;
-    return list.filter(a =>
-      (a.name ?? "").toLowerCase().includes(x) ||
-      (a.networkName ?? "").toLowerCase().includes(x)
-    );
-  }, [list, q]);
+    return list.filter(a => {
+      if (net && (a.networkName ?? "") !== net) return false;
+      if (!x) return true;
+      return (a.name ?? "").toLowerCase().includes(x) || (a.networkName ?? "").toLowerCase().includes(x);
+    });
+  }, [list, q, net]);
 
   async function doSync() {
     setSyncing(true);
@@ -74,6 +80,12 @@ export default function SettingsPage() {
 
   function updateDraft(id: number, field: "lat" | "lon" | "description", value: string) {
     setDraft(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+  }
+  function onKeySave(e: React.KeyboardEvent, a: Antenna) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveRow(a);
+    }
   }
 
   async function saveRow(a: Antenna) {
@@ -95,7 +107,7 @@ export default function SettingsPage() {
       return;
     }
 
-    // remove imediatamente da lista de “pendentes”
+    // some da lista (pendentes)
     setList(prev => prev.filter(x => x.id !== a.id));
   }
 
@@ -103,28 +115,36 @@ export default function SettingsPage() {
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Configurações</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-xs opacity-70">Pendentes: {list.length}</span>
+        <div className="flex items-center gap-2">
           <input
-            placeholder="Buscar por AP ou Rede..."
+            placeholder="Buscar por AP..."
             className="px-3 py-2 rounded-lg bg-white/70 dark:bg-white/5"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          <select
+            className="px-3 py-2 rounded-lg bg-white/70 dark:bg-white/5"
+            value={net}
+            onChange={(e) => setNet(e.target.value)}
+            title="Filtrar por rede"
+          >
+            <option value="">Todas as redes</option>
+            {networks.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
           <button
             onClick={doSync}
             disabled={syncing}
             className="px-3 py-2 rounded bg-brand1 text-white hover:opacity-90 disabled:opacity-50"
             title="Buscar APs e status no GDMS agora"
           >
-            {syncing ? "Sincronizando..." : "Sincronizar GDMS agora"}
+            {syncing ? "Sincronizando..." : "Sincronizar"}
           </button>
         </div>
       </div>
 
       <div className="glass rounded-2xl p-4">
         <div className="text-sm opacity-70 mb-3">
-          Cadastre Latitude/Longitude e Observações. O status é atualizado pelo sincronismo (5 min / manual).
+          Preencha Latitude/Longitude e Observações. Ao salvar, a antena sai desta lista.
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-black/10 dark:border-white/10">
@@ -132,7 +152,7 @@ export default function SettingsPage() {
             <thead className="bg-black/5 dark:bg-white/10">
               <tr>
                 <th className="text-left p-2">Nome do AP</th>
-                <th className="text-left p-2">Nome da Rede</th>
+                <th className="text-left p-2">Rede</th>
                 <th className="text-left p-2">Status</th>
                 <th className="text-left p-2">Latitude</th>
                 <th className="text-left p-2">Longitude</th>
@@ -141,9 +161,7 @@ export default function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && (
-                <tr><td colSpan={7} className="p-4 opacity-60">Carregando...</td></tr>
-              )}
+              {loading && <tr><td colSpan={7} className="p-4 opacity-60">Carregando...</td></tr>}
 
               {!loading && filtered.map((a) => {
                 const d = draft[a.id] ?? {};
@@ -162,6 +180,7 @@ export default function SettingsPage() {
                         className="px-2 py-1 rounded bg-white/70 dark:bg-white/5 w-32"
                         value={d.lat ?? ""}
                         onChange={(e) => updateDraft(a.id, "lat", e.target.value)}
+                        onKeyDown={(e) => onKeySave(e, a)}
                         placeholder="-23.5"
                         inputMode="decimal"
                       />
@@ -171,6 +190,7 @@ export default function SettingsPage() {
                         className="px-2 py-1 rounded bg-white/70 dark:bg-white/5 w-32"
                         value={d.lon ?? ""}
                         onChange={(e) => updateDraft(a.id, "lon", e.target.value)}
+                        onKeyDown={(e) => onKeySave(e, a)}
                         placeholder="-46.6"
                         inputMode="decimal"
                       />
@@ -180,6 +200,7 @@ export default function SettingsPage() {
                         className="px-2 py-1 rounded bg-white/70 dark:bg-white/5 w-[18rem]"
                         value={d.description ?? ""}
                         onChange={(e) => updateDraft(a.id, "description", e.target.value)}
+                        onKeyDown={(e) => onKeySave(e, a)}
                         placeholder="Ponto de referência / observações…"
                       />
                     </td>
@@ -187,7 +208,7 @@ export default function SettingsPage() {
                       <button
                         onClick={() => saveRow(a)}
                         className="px-3 py-1.5 rounded bg-brand1 text-white hover:opacity-90"
-                        title="Salvar Latitude/Longitude/Observações"
+                        title="Salvar linha"
                       >
                         Salvar
                       </button>

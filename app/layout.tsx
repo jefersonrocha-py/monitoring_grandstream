@@ -1,18 +1,20 @@
-import "../styles/globals.css";
+// app/layout.tsx
+import "../styles/globals.css"; // importa CSS global só aqui (no root)
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
-import { config } from "@fortawesome/fontawesome-svg-core";
-import "@fortawesome/fontawesome-svg-core/styles.css";
-config.autoAddCss = false;
+import ThemeScript from "@components/ThemeScript";
 
-export const metadata: Metadata = { title: "Etherium Antennas" };
-
-const font = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400","600","700"] });
+export const metadata: Metadata = {
+  title: "Etherium Antennas",
+  description: "Monitoramento de antenas",
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={font.className}>
-      <body className="min-h-screen bg-gradient-to-br from-brand2 via-neutral-900 to-black text-white">
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
+      <body className="min-h-screen bg-app text-app antialiased">
         {children}
       </body>
     </html>

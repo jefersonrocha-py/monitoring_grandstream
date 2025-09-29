@@ -5,36 +5,44 @@ import type { Engine } from "tsparticles-engine";
 import { loadSlim } from "tsparticles-slim";
 import { useCallback } from "react";
 
+/**
+ * Partículas leves para telas de auth.
+ * Importante:
+ * - NÃO usar z-index negativo aqui; deixamos em z-0
+ * - O wrapper (pai) deve ter `relative` e `isolate`
+ * - O card principal fica com `z-10`
+ */
 export default function AuthParticles() {
-  const init = useCallback(async (engine: Engine) => {
+  const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
   }, []);
 
   return (
     <Particles
       id="auth-particles"
-      init={init}
-      className="absolute inset-0 -z-10"
+      init={particlesInit}
+      className="absolute inset-0 z-0 pointer-events-none"
       options={{
-        fullScreen: false,
+        fullScreen: false, // controlamos via container
         background: { color: "transparent" },
         detectRetina: true,
         fpsLimit: 60,
         particles: {
-          number: { value: 65, density: { enable: true, area: 800 } },
-          size: { value: { min: 1, max: 3 } },
-          move: { enable: true, speed: 0.55, outModes: { default: "out" } },
-          opacity: { value: 0.22 },
-          shape: { type: "circle" },
-          // gradiente “fake”: escolhe aleatório entre verdes
-          color: { value: ["#22c55e", "#10b981", "#86efac"] },
+          number: { value: 45, density: { enable: true, area: 900 } },
+          color: { value: "#08FFB8" },
+          opacity: { value: 0.18 },
+          size: { value: { min: 1, max: 2 } },
           links: {
             enable: true,
-            color: "#22c55e",
+            color: "#08FFB8",
+            opacity: 0.08,
             distance: 140,
-            opacity: 0.12,
             width: 1,
           },
+          move: { enable: true, speed: 0.35, outModes: { default: "out" } },
+        },
+        interactivity: {
+          events: { resize: true },
         },
       }}
     />
