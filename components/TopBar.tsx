@@ -1,63 +1,43 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUIStore } from "@store/ui";
+import { useThemeStore } from "@store/theme";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faBars,
   faRightFromBracket,
   faMagnifyingGlass,
   faRotateRight,
-  faMoon,
-  faSun,
   faExpand,
   faCompress,
+  faMoon,
+  faSun,
 } from "@fortawesome/free-solid-svg-icons";
-import { useCallback, useEffect, useState } from "react";
 
+/**
+ * TopBar (sem hambúrguer)
+ * - Busca (Enter -> "search-antennas")
+ * - Recarregar / Fullscreen do mapa (#map-root)
+ * - Toggle de tema via store
+ * - Sair
+ */
 export default function TopBar() {
-  const { sidebarOpen, setSidebarOpen } = useUIStore();
   const router = useRouter();
 
-  // ===== Theme (persistência simples)
-  const [isDark, setIsDark] = useState<boolean>(true);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const root = document.documentElement;
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-    const enabled = stored ? stored === "dark" : prefersDark ?? true;
-    root.classList.toggle("dark", enabled);
-    setIsDark(enabled);
-    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => {
-      const saved = localStorage.getItem("theme");
-      if (!saved) {
-        root.classList.toggle("dark", e.matches);
-        setIsDark(e.matches);
-      }
-    };
-    mq?.addEventListener?.("change", onChange);
-    return () => mq?.removeEventListener?.("change", onChange);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const root = document.documentElement;
-    const next = !isDark;
-    root.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-    setIsDark(next);
-  }, [isDark]);
-
-  // ===== Sidebar
-  const toggleSidebar = useCallback(() => setSidebarOpen(!sidebarOpen), [sidebarOpen, setSidebarOpen]);
+  // ===== Busca
+  const [q, setQ] = useState("");
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const term = q.trim();
+      window.dispatchEvent(
+        new CustomEvent("search-antennas", { detail: { q: term } }) as any
+      );
+    }
+  };
 
   // ===== Fullscreen do MAPA (#map-root)
   const [isFs, setIsFs] = useState(false);
-
   useEffect(() => {
-    if (typeof document === "undefined") return;
     const handler = () => {
       const el = document.getElementById("map-root");
       const current = document.fullscreenElement;
@@ -68,17 +48,14 @@ export default function TopBar() {
   }, []);
 
   const toggleFullscreen = useCallback(async () => {
-    if (typeof document === "undefined") return;
     const el = document.getElementById("map-root") as any;
     if (!el) return;
-
     try {
       const current = document.fullscreenElement;
       const isTarget = current === el || (current && el.contains(current));
-
       if (!current || !isTarget) {
         if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen(); // Safari
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
         setIsFs(true);
       } else {
         if (document.exitFullscreen) await document.exitFullscreen();
@@ -86,9 +63,20 @@ export default function TopBar() {
         setIsFs(false);
       }
     } catch {
-      // silencioso
+      /* noop */
     }
   }, []);
+
+  // ===== Tema
+  const { theme, toggle: toggleTheme } = useThemeStore();
+  const isLight = (() => {
+    if (theme === "light") return true;
+    if (theme === "dark") return false;
+    if (typeof window !== "undefined" && window.matchMedia) {
+      return !window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return true;
+  })();
 
   // ===== Logout
   async function handleLogout() {
@@ -99,74 +87,76 @@ export default function TopBar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-black/30 bg-black/20 border-b border-white/10">
-      <div className="flex items-center gap-3 px-4 py-3">
-        {/* Toggle sidebar */}
-        <button
-          onClick={toggleSidebar}
-          className="h-9 w-9 grid place-items-center rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
-          title={sidebarOpen ? "Ocultar menu" : "Mostrar menu"}
-          aria-label="Alternar menu lateral"
-        >
-          <FontAwesomeIcon icon={faBars} className="h-4 w-4" />
-        </button>
+    <header className="sticky top-0 z-30">
+      <div className="glass rounded-none border-0">
+        <div className="mx-auto max-w-[1600px] px-3 sm:px-4 py-2.5">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Espaço reservado para alinhar com a largura do sidebar colapsado/expandido */}
+            <div className="hidden md:block w-16" aria-hidden />
 
-        {/* Busca */}
-        <div className="flex-1 max-w-2xl">
-          <div className="relative">
-            <FontAwesomeIcon
-              icon={faMagnifyingGlass}
-              className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60 h-4 w-4"
-            />
-            <input
-              className="w-full pl-9 pr-3 h-9 rounded-lg bg-white/70 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:ring-2 focus:ring-brand3 outline-none"
-              placeholder="Pesquisar antena (nome)..."
-              aria-label="Pesquisar antena"
-            />
+            {/* Busca */}
+            <div className="flex-1">
+              <div className="relative mx-auto max-w-xl lg:max-w-2xl">
+                <FontAwesomeIcon
+                  icon={faMagnifyingGlass}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60 h-4 w-4"
+                />
+                <input
+                  className="w-full pl-9 pr-3 h-9 rounded-lg bg-white/70 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:ring-2 focus:ring-brand3 outline-none"
+                  placeholder="Pesquisar antena (nome)..."
+                  aria-label="Pesquisar antena"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={onKeyDown}
+                />
+              </div>
+            </div>
+
+            {/* Ações à direita */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Recarregar */}
+              <button
+                onClick={() => location.reload()}
+                className="h-8 w-8 sm:h-9 sm:w-9 grid place-items-center rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
+                title="Recarregar"
+                aria-label="Recarregar"
+              >
+                <FontAwesomeIcon icon={faRotateRight} className="h-4 w-4" />
+              </button>
+
+              {/* Fullscreen do mapa */}
+              <button
+                onClick={toggleFullscreen}
+                className="h-8 w-8 sm:h-9 sm:w-9 grid place-items-center rounded-lg bg-black/5 dark:bg:white/10 hover:bg-black/10 dark:hover:bg-white/20"
+                title={isFs ? "Sair do Fullscreen do mapa" : "Fullscreen do mapa"}
+                aria-label="Alternar fullscreen do mapa"
+              >
+                <FontAwesomeIcon icon={isFs ? faCompress : faExpand} className="h-4 w-4" />
+              </button>
+
+              {/* Tema */}
+              <button
+                onClick={toggleTheme}
+                className="h-8 w-8 sm:h-9 sm:w-9 grid place-items-center rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
+                title={isLight ? "Mudar para Dark" : "Mudar para Light"}
+                aria-label="Alternar tema"
+              >
+                <FontAwesomeIcon icon={isLight ? faSun : faMoon} className="h-4 w-4" />
+              </button>
+
+              {/* Sair */}
+              <button
+                onClick={handleLogout}
+                className="h-8 sm:h-9 inline-flex items-center gap-2 px-2.5 sm:px-3 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
+                title="Sair"
+                aria-label="Sair"
+              >
+                <FontAwesomeIcon icon={faRightFromBracket} className="h-4 w-4" />
+                <span className="hidden md:inline text-sm">Sair</span>
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Recarregar */}
-        <button
-          onClick={() => location.reload()}
-          className="h-9 w-9 grid place-items-center rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
-          title="Recarregar"
-          aria-label="Recarregar"
-        >
-          <FontAwesomeIcon icon={faRotateRight} className="h-4 w-4" />
-        </button>
-
-        {/* Fullscreen do mapa */}
-        <button
-          onClick={toggleFullscreen}
-          className="h-9 w-9 grid place-items-center rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
-          title={isFs ? "Sair do Fullscreen do mapa" : "Fullscreen do mapa"}
-          aria-label="Alternar fullscreen do mapa"
-        >
-          <FontAwesomeIcon icon={isFs ? faCompress : faExpand} className="h-4 w-4" />
-        </button>
-
-        {/* Switch Theme */}
-        <button
-          onClick={toggleTheme}
-          className="inline-flex items-center gap-2 px-3 h-9 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
-          title={isDark ? "Mudar para Light" : "Mudar para Dark"}
-          aria-label="Alternar tema"
-        >
-          <FontAwesomeIcon icon={isDark ? faMoon : faSun} className="h-4 w-4" />
-          <span className="hidden sm:inline">{isDark ? "Dark" : "Light"}</span>
-        </button>
-
-        {/* Sair */}
-        <button
-          onClick={handleLogout}
-          className="inline-flex items-center gap-2 px-3 h-9 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
-          title="Sair"
-          aria-label="Sair"
-        >
-          <FontAwesomeIcon icon={faRightFromBracket} className="h-4 w-4" />
-          <span className="hidden sm:inline">Sair</span>
-        </button>
       </div>
     </header>
   );

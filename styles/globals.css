@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========= Tokens de tema (light/dark) ========= */
+:root {
+  --bg-from: #f7f8fa;
+  --bg-via: #eef1f4;
+  --bg-to:  #e9eef3;
+  --text: #0b1220;
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(0, 0, 0, 0.12);
+}
+html.dark {
+  --bg-from: #0b1220;
+  --bg-via: #0b1220;
+  --bg-to:  #000000;
+  --text: #ffffff;
+  --glass-bg: rgba(17, 24, 39, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.12);
+}
+/* Utilitários base para usar no <body> */
+.bg-app {
+  background-image: linear-gradient(to bottom right, var(--bg-from), var(--bg-via), var(--bg-to));
+}
+.text-app { color: var(--text); }
+
+/* ========= SEU CSS existente (mantido) ========= */
+
 /* Leaflet */
 @import 'leaflet/dist/leaflet.css';
 
@@ -9,7 +34,11 @@ html, body, #__next { height: 100%; }
 
 /* Glass cards util */
 .glass {
-  @apply bg-white/60 dark:bg-neutral-900/50 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-soft;
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  @apply shadow-soft;
 }
 
 /* Smooth transitions */
@@ -18,6 +47,7 @@ html, body, #__next { height: 100%; }
 /* Forms reset */
 input, select, textarea {
   @apply rounded-md bg-white/70 dark:bg-white/5 border-black/10 dark:border-white/10;
+  color: inherit;
 }
 
 /* Neon verde água (brand3) */
@@ -44,38 +74,12 @@ input, select, textarea {
 }
 */
 
-
 /* ——— Login effects ——— */
-
-/* brilho/shine sutil que cruza o botão */
-.btn-shine {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-}
+.btn-shine { position: relative; overflow: hidden; isolation: isolate; }
 .btn-shine::after {
   content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    120deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.25) 20%,
-    transparent 40%
-  );
-  transform: translateX(-120%);
-  transition: transform 0.8s ease;
+  position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.25) 20%, transparent 40%);
+  transform: translateX(-120%); transition: transform .8s ease;
 }
-.btn-shine:hover::after {
-  transform: translateX(120%);
-}
-
-/* helper: “glass” já existe, mas se quiser reforçar a transparência */
-/*
-.glass {
-  background: radial-gradient(120% 140% at 10% 10%, rgba(255,255,255,0.06), transparent 60%),
-              linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.2));
-  border: 1px solid rgba(255,255,255,0.12);
-  backdrop-filter: blur(12px);
-}
-*/
+.btn-shine:hover::after { transform: translateX(120%); }
