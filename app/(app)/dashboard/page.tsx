@@ -13,15 +13,15 @@ export default function DashboardPage() {
   const [q, setQ] = useState("");
 
   async function load() {
-    // 👇 Aceita array (formato antigo) OU objeto { items: [...] } (formato novo)
+    // aceita array (formato antigo) OU objeto { items: [...] } (formato novo)
     const [lRaw, s] = await Promise.all([
-      api<any>("/api/antennas?take=500"), // <— importante: usa `any` pra compat
+      api<any>("/api/antennas?take=500"),
       api<Stats>("/api/stats"),
     ]);
 
     const l: Antenna[] = Array.isArray(lRaw) ? lRaw : (lRaw?.items ?? []);
     setList(Array.isArray(l) ? l : []);
-    setStats(s);
+    setStats(s || null);
   }
 
   useEffect(() => {
@@ -29,7 +29,11 @@ export default function DashboardPage() {
     const disconnect = connectSSE((e) => {
       try {
         const msg = JSON.parse(e.data);
-        if (["antenna.created", "antenna.updated", "antenna.deleted", "status.changed"].includes(msg.event)) {
+        if (
+          ["antenna.created", "antenna.updated", "antenna.deleted", "status.changed"].includes(
+            msg.event
+          )
+        ) {
           load();
         }
       } catch {}
@@ -37,7 +41,7 @@ export default function DashboardPage() {
     return disconnect;
   }, []);
 
-  // Recebe busca enviada pela TopBar (tecla Enter)
+  // Busca da TopBar (Enter)
   useEffect(() => {
     const handler = (e: any) => setQ((e.detail?.q || "").toLowerCase());
     window.addEventListener("search-antennas", handler as any);
@@ -46,9 +50,11 @@ export default function DashboardPage() {
 
   const filtered = useMemo(
     () =>
-      (Array.isArray(list) ? list : []).filter((a) =>
-        (a?.name ?? "").toLowerCase().includes(q)
-      ),
+      (Array.isArray(list) ? list : []).filter((a) => {
+        const name = (a?.name ?? "").toLowerCase();
+        const net = (a as any)?.networkName ? String((a as any).networkName).toLowerCase() : "";
+        return name.includes(q) || net.includes(q);
+      }),
     [list, q]
   );
 
@@ -69,10 +75,11 @@ export default function DashboardPage() {
 
   function exportCSV() {
     const csv = toCSV(
-      filtered.map((a) => ({
+      filtered.map((a: any) => ({
         Nome: a.name,
-        Lat: a.lat ?? "",
-        Lon: a.lon ?? "",
+        Rede: a.networkName ?? "",
+        Lat: typeof a.lat === "number" ? a.lat : a.lat ?? "",
+        Lon: typeof a.lon === "number" ? a.lon : a.lon ?? "",
         Status: a.status,
         AtualizadoEm:
           typeof a.updatedAt === "string"
@@ -105,13 +112,13 @@ export default function DashboardPage() {
 
       <div className="glass rounded-2xl p-4 space-y-3">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2">
-          <div className="w-full md:w-80">
+          <div className="w-full md:w-96">
             <input
-              placeholder="Filtrar por nome..."
+              placeholder="Filtrar por AP ou Rede..."
               className="w-full px-3 py-2 rounded-lg bg-white/70 dark:bg-white/5"
               value={q}
               onChange={(e) => setQ(e.target.value.toLowerCase())}
-              aria-label="Filtro por nome"
+              aria-label="Filtro por AP ou Rede"
             />
           </div>
           <div className="flex gap-2">
@@ -129,6 +136,7 @@ export default function DashboardPage() {
             <thead className="bg-black/5 dark:bg-white/10">
               <tr>
                 <th className="text-left p-2">Nome</th>
+                <th className="text-left p-2">Rede</th>
                 <th className="text-left p-2">Latitude</th>
                 <th className="text-left p-2">Longitude</th>
                 <th className="text-left p-2">Última atualização</th>
@@ -137,7 +145,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a) => {
+              {filtered.map((a: any) => {
                 const latStr =
                   typeof a.lat === "number" ? a.lat.toFixed(5) : a.lat ?? "-";
                 const lonStr =
@@ -155,6 +163,7 @@ export default function DashboardPage() {
                     className="border-t border-black/10 dark:border-white/10"
                   >
                     <td className="p-2">{a.name}</td>
+                    <td className="p-2">{a.networkName ?? "-"}</td>
                     <td className="p-2">{latStr}</td>
                     <td className="p-2">{lonStr}</td>
                     <td className="p-2 text-xs opacity-70">{updatedStr}</td>
@@ -186,7 +195,7 @@ export default function DashboardPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-3 text-center opacity-60">
+                  <td colSpan={7} className="p-3 text-center opacity-60">
                     Nenhuma antena encontrada.
                   </td>
                 </tr>
